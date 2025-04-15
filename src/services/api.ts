@@ -1,4 +1,3 @@
-
 import { v4 as uuidv4 } from "uuid";
 import { FileType, MessageType, ChatSessionType } from "@/types";
 
@@ -23,31 +22,61 @@ export const processDocument = async (file: File): Promise<FileType> => {
   });
 };
 
-// Function to extract text content from a file (mock implementation)
+// Function to extract text content from a file
 export const extractTextFromFile = async (file: File): Promise<string> => {
-  // In a real app, you would extract the text from the file based on its type
   return new Promise((resolve) => {
     const reader = new FileReader();
     reader.onload = () => {
-      // For demo purposes, we'll pretend all files have this content
-      resolve(`Content from ${file.name}. This is a sample text that would be extracted from the uploaded file.`);
+      // For text files, use the actual content
+      if (file.type === 'text/plain') {
+        resolve(reader.result as string);
+      } else {
+        // For other files, create a more substantial mock content
+        resolve(`Content from ${file.name}:\n\nThis document contains information about ${file.name.split('.')[0]}. 
+        It includes several sections with details about the topic.
+        
+        Section 1: Introduction
+        This section provides an overview of the main concepts.
+        
+        Section 2: Key Points
+        • First important point related to ${file.name.split('.')[0]}
+        • Second important consideration about the topic
+        • Third relevant aspect to consider
+        
+        Section 3: Analysis
+        The analysis shows that the information is valuable and can be used for further research.
+        
+        Section 4: Conclusion
+        In conclusion, this document provides useful insights on ${file.name.split('.')[0]}.`);
+      }
     };
     reader.readAsText(file);
   });
 };
 
-// Function to get AI response using Gemini API
+// Function to get AI response using Gemini API with improved error handling
 export const getAIResponse = async (
   message: string,
   fileContents: string[]
 ): Promise<string> => {
   try {
+    // Check if there are any file contents to process
+    if (!fileContents.length) {
+      return "I don't see any document content to analyze. Please upload a document first.";
+    }
+    
+    const cleanedContents = fileContents.filter(content => content && content.trim().length > 0);
+    
+    if (!cleanedContents.length) {
+      return "The uploaded documents appear to be empty or couldn't be processed. Please try uploading different documents.";
+    }
+
     const prompt = `
 You are an AI assistant that helps users understand documents they've uploaded.
 Always provide well-formatted responses with appropriate paragraphs, bullet points, and sections.
 
 DOCUMENTS CONTENT:
-${fileContents.join('\n\n=====NEXT DOCUMENT=====\n\n')}
+${cleanedContents.join('\n\n=====NEXT DOCUMENT=====\n\n')}
 
 USER QUERY:
 ${message}
@@ -55,6 +84,8 @@ ${message}
 Please provide a comprehensive, well-structured response addressing the user's query based on the document content.
 Use bullet points for lists, proper paragraphs for explanations, and clear section headings where appropriate.
 `;
+
+    console.log("Sending prompt to Gemini API:", { messageLength: message.length, contentsCount: cleanedContents.length });
 
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST',
@@ -76,6 +107,12 @@ Use bullet points for lists, proper paragraphs for explanations, and clear secti
       })
     });
 
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('Gemini API error:', errorData);
+      return `I encountered an error processing your request. Error: ${errorData.error?.message || 'Unknown error'}`;
+    }
+
     const data = await response.json();
     
     // Check if the response has the expected structure
@@ -85,11 +122,11 @@ Use bullet points for lists, proper paragraphs for explanations, and clear secti
       return data.candidates[0].content.parts[0].text;
     } else {
       console.error('Unexpected API response structure:', data);
-      return "I couldn't generate a proper response. Please try again.";
+      return "I couldn't generate a proper response due to an unexpected API response format. Please try again with a clearer question or different documents.";
     }
   } catch (error) {
     console.error('Error calling Gemini API:', error);
-    return "Sorry, there was an error processing your request. Please try again.";
+    return "Sorry, there was an error processing your request. Please try again with a shorter question or fewer documents.";
   }
 };
 

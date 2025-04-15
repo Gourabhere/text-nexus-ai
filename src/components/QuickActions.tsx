@@ -27,8 +27,10 @@ const QuickActions = ({ onAction, disabled = false }: QuickActionsProps) => {
   ];
 
   const handleAction = (prompt: string) => {
-    console.log("QuickAction triggered:", prompt);
-    onAction(prompt);
+    if (!disabled) {
+      console.log("QuickAction triggered:", prompt);
+      onAction(prompt);
+    }
   };
 
   return (

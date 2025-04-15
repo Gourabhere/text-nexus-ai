@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { Toaster } from "@/components/ui/sonner";
@@ -45,6 +44,14 @@ const Index = () => {
     if (mockSessions.length > 0) {
       setActiveSessionId(mockSessions[0].id);
       setSelectedFiles(mockSessions[0].files.map(f => f.id));
+      
+      // Set mock file contents for each file (in a real app, this would come from the server)
+      mockSessions[0].files.forEach(file => {
+        setFileContents(prev => ({
+          ...prev,
+          [file.id]: `Mock content for file: ${file.name}. This is a sample text that would typically be extracted from the file.`
+        }));
+      });
     }
   }, []);
   
@@ -61,6 +68,8 @@ const Index = () => {
           
           // Extract text content from the file
           const textContent = await extractTextFromFile(file);
+          
+          // Store the content
           setFileContents(prev => ({
             ...prev,
             [processedFile.id]: textContent
@@ -111,7 +120,10 @@ const Index = () => {
   };
 
   const handleSendMessage = async (message: string) => {
-    if (!activeSessionId) return;
+    if (!activeSessionId) {
+      toast.error("Please create or select a session first");
+      return;
+    }
     
     // Add user message to the session
     const userMessageId = uuidv4();
@@ -133,10 +145,43 @@ const Index = () => {
     setIsProcessing(true);
     
     try {
-      // Get the content of all files in the active session
-      const sessionFiles = sessions
+      // Get the content of all selected files in the active session
+      const activeSessionFiles = sessions
         .find(s => s.id === activeSessionId)?.files || [];
-      const contents = sessionFiles.map(file => fileContents[file.id] || "");
+      
+      const selectedSessionFiles = activeSessionFiles.filter(
+        file => selectedFiles.includes(file.id)
+      );
+      
+      if (selectedSessionFiles.length === 0) {
+        toast.warning("Please select at least one file to analyze");
+        
+        // Add system message indicating no files selected
+        const systemMessage: MessageType = {
+          id: uuidv4(),
+          role: "assistant",
+          content: "Please select at least one file to analyze.",
+          timestamp: new Date()
+        };
+        
+        setSessions(prev => 
+          prev.map(session => 
+            session.id === activeSessionId 
+              ? { ...session, messages: [...session.messages, systemMessage] } 
+              : session
+          )
+        );
+        return;
+      }
+      
+      // Get contents of selected files
+      const contents = selectedSessionFiles
+        .map(file => fileContents[file.id] || "")
+        .filter(content => content.trim() !== "");
+      
+      console.log("File contents being sent to AI:", contents.map((c, i) => 
+        `File ${i+1}: ${c.substring(0, 50)}...`
+      ));
       
       // Get AI response
       const aiResponse = await getAIResponse(message, contents);
@@ -160,6 +205,22 @@ const Index = () => {
     } catch (error) {
       console.error('Error getting AI response:', error);
       toast.error("Error generating response. Please try again.");
+      
+      // Add error message to the session
+      const errorMessage: MessageType = {
+        id: uuidv4(),
+        role: "assistant",
+        content: "Sorry, I encountered an error while processing your request. Please try again.",
+        timestamp: new Date()
+      };
+      
+      setSessions(prev => 
+        prev.map(session => 
+          session.id === activeSessionId 
+            ? { ...session, messages: [...session.messages, errorMessage] } 
+            : session
+        )
+      );
     } finally {
       setIsProcessing(false);
     }
