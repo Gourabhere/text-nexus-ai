@@ -22,3 +22,8 @@ export type ChatSessionType = {
   messages: MessageType[];
   createdAt: Date;
 };
+
+export type FileContentType = {
+  id: string;
+  content: string;
+};

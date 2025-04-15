@@ -64,6 +64,8 @@ const FileUpload = ({ onFileUpload }: FileUploadProps) => {
       onFileUpload(selectedFiles);
       setSelectedFiles([]);
       toast.success("Files uploaded successfully!");
+    } else {
+      toast.error("Please select files to upload");
     }
   };
 
