@@ -26,6 +26,11 @@ const QuickActions = ({ onAction, disabled = false }: QuickActionsProps) => {
     }
   ];
 
+  const handleAction = (prompt: string) => {
+    console.log("QuickAction triggered:", prompt);
+    onAction(prompt);
+  };
+
   return (
     <div className="flex justify-center space-x-2">
       {actions.map((action) => (
@@ -34,7 +39,7 @@ const QuickActions = ({ onAction, disabled = false }: QuickActionsProps) => {
           variant="outline"
           className="flex items-center space-x-1"
           disabled={disabled}
-          onClick={() => onAction(action.prompt)}
+          onClick={() => handleAction(action.prompt)}
         >
           {action.icon}
           <span>{action.name}</span>
